@@ -1,0 +1,263 @@
+#[例3.16] 查询全体学生的学号与姓名
+select student_id,student_name from student;
+
+#[例3.17] 查询全体学生的姓名、学号、主修专业
+select student_id,student_name,class_major from student s join class c on s.class_id=c.class_id;
+
+#[例3.18] 查询全体学生的详细记录
+select * from student;
+
+#[例3.19] 查全体学生的姓名及其年龄（表中只有出生日期）
+SELECT 
+    student_name,
+    YEAR(CURDATE()) - YEAR(student_birthdate) - 
+    (DATE_FORMAT(CURDATE(), '%m%d') < DATE_FORMAT(student_birthdate, '%m%d')) AS age
+FROM student;
+
+#[例3.20] 查询全体学生的姓名、出生日期和主修专业
+#要求用小写字母表示主修专业
+SELECT 
+    s.student_name,
+    s.student_birthdate,
+    LOWER(c.class_major) AS 主修专业
+FROM student s
+JOIN class c ON s.class_id = c.class_id;
+
+#[例3.21] 查询选修了课程的学生学号
+select distinct student_id from score;
+
+#[例3.22] 查询主修计算机科学与技术专业全体学生的名单
+SELECT student_name, student_id
+FROM student s
+JOIN class c ON s.class_id = c.class_id
+WHERE c.class_major = '计算机科学与技术';
+
+#[例3.23] 查询所有2000年后（包括2000年）出生的学生姓名、性别 
+SELECT student_name, student_sex
+FROM student
+WHERE YEAR(student_birthdate) >= 2000;
+
+#[例3.24] 查询所有未通过考试的学生的学号
+SELECT DISTINCT student_id
+FROM score
+WHERE score_grade < 60 OR score_grade IS NULL; 
+
+#[例3.25] 查询年龄在20~23岁（包括20岁和23岁）之间的学生的姓名、出生日期和主修专业
+SELECT 
+    s.student_name,
+    s.student_birthdate,
+    c.class_major
+FROM student s
+JOIN class c ON s.class_id = c.class_id
+WHERE (YEAR(CURDATE()) - YEAR(student_birthdate) - 
+      (DATE_FORMAT(CURDATE(), '%m%d') < DATE_FORMAT(student_birthdate, '%m%d'))) BETWEEN 20 AND 23;
+
+#[例3.26] 查询年龄不在20~23岁之间的学生的姓名、出生日期和主修专业
+SELECT 
+    s.student_name,
+    s.student_birthdate,
+    c.class_major
+FROM student s
+JOIN class c ON s.class_id = c.class_id
+WHERE (YEAR(CURDATE()) - YEAR(student_birthdate) - 
+      (DATE_FORMAT(CURDATE(), '%m%d') < DATE_FORMAT(student_birthdate, '%m%d'))) NOT BETWEEN 20 AND 23;
+
+#[例3.27] 查询计算机科学与技术专业和信息安全专业学生的姓名和性别
+SELECT student_name, student_sex
+FROM student s
+JOIN class c ON s.class_id = c.class_id
+WHERE c.class_major = '计算机科学与技术' or c.class_major = '信息安全';
+
+#[例3.28] 查询既不是计算机科学与技术专业也不是信息安全专业学生的姓名和性别
+SELECT student_name, student_sex
+FROM student s
+JOIN class c ON s.class_id = c.class_id
+WHERE not (c.class_major = '计算机科学与技术' or c.class_major = '信息安全');
+
+#[例3.29] 查询学号为20180003的学生的详细情况
+select * from student where student_id = 20180003;
+
+#[例3.30] 查询所有刘姓学生的姓名、学号和性别
+select student_name,student_id,student_sex from student where left(student_name,1)='刘';
+
+#【例】 查询姓"欧阳"且全名为三个汉字的学生的姓名
+select student_name from student where student_name like '欧阳_';
+
+#[例3.31] 查询2018级学生的学号和姓名
+SELECT student_id, student_name
+FROM student
+WHERE student_id LIKE '2018%';
+
+#[例3.32] 查询课程号为81开头，最后一位是6的课程名称和课程号
+SELECT course_id, course_name
+FROM course
+WHERE course_id LIKE '81%6';
+
+#【例】 查询名字中第2个字为"阳"字的学生的姓名和学号
+select student_name from student where student_name like '_阳%';
+
+#[例3.33] 查询所有不姓刘的学生姓名、学号和性别
+select student_name,student_id,student_sex from student where not left(student_name,1)='刘';
+
+#[例3.34] 查询DB_Design课程的课程号和学分
+SELECT course_id, course_credit
+FROM course
+WHERE course_name = 'DB_Design';
+
+#[例3.35] 查询以"DB_"开头，且倒数第3个字符为 i的课程的详细情况
+SELECT *
+FROM course
+WHERE course_name LIKE 'DB\_%i__' ESCAPE '\\';
+
+#[例3.36] 查询缺少成绩的学生的学号和相应的课程号
+SELECT student_id, course_id
+FROM score
+WHERE score_grade IS NULL;
+
+#[例3.37] 查所有有成绩的学生学号和课程号
+SELECT student_id, course_id
+FROM score
+WHERE score_grade IS NOT NULL;
+
+#[例3.38] 查询主修计算机科学与技术专业2000年（包括2000年）以后出生的学生学号、姓名和性别
+SELECT s.student_id, s.student_name, s.student_sex
+FROM student s
+JOIN class c ON s.class_id = c.class_id
+WHERE c.class_major = '信息管理'  -- 改为信息管理
+AND YEAR(s.student_birthdate) >= 2000;
+
+#【例】 查询在2002年以后或2000年以前出生且是信息安全专业的学生姓名
+SELECT student_name
+FROM student s
+JOIN class c ON s.class_id = c.class_id
+WHERE (YEAR(s.student_birthdate) > 2002 OR YEAR(s.student_birthdate) < 2000)
+AND c.class_major = '信息安全';
+
+#[例3.27] 查询计算机科学与技术专业和信息安全专业学生的姓名和性别
+SELECT s.student_name, s.student_sex
+FROM student s
+JOIN class c ON s.class_id = c.class_id
+WHERE c.class_major IN ('计算机科学与技术', '信息安全');
+
+#[例3.39] 查询选修了81003号课程的学生的学号及其成绩，查询结果按分数降序排列。
+SELECT student_id, score_grade
+FROM score
+WHERE course_id = '81003'
+ORDER BY score_grade DESC;
+
+#【例】查询全体学生基本情况，查询结果按专业升序排列，同一专业中的学生按出生日期降序排列。
+SELECT s.*, c.class_major
+FROM student s
+JOIN class c ON s.class_id = c.class_id
+ORDER BY c.class_major ASC, s.student_birthdate DESC;
+
+#[例3.40]查询全体学生选修课程情况，查询结果先按照课程号升序排列，同一课程中按成绩降序排列。
+SELECT *
+FROM score
+ORDER BY course_id ASC, score_grade DESC;
+
+#[例3.41] 查询学生总人数
+SELECT COUNT(*) AS 学生总人数 FROM student;
+
+#[例3.42] 查询选修了课程的学生人数
+SELECT COUNT(DISTINCT student_id) AS 选修课程学生人数 FROM score;
+
+#[例3.43] 计算81001号课程的学生平均成绩
+SELECT AVG(score_grade) AS 平均成绩
+FROM score
+WHERE course_id = '81001' AND score_grade IS NOT NULL;
+
+#[例3.44] 查询选修81001号课程的学生最高分数
+SELECT MAX(score_grade) AS 最高分数
+FROM score
+WHERE course_id = '81001';
+
+#[例3.45] 查询学生20180003选修课程的总学分数（多表查询）
+SELECT SUM(c.course_credit) AS 总学分数
+FROM score s
+JOIN course c ON s.course_id = c.course_id
+WHERE s.student_id = '20180003' AND s.score_grade >= 60;  -- 假设60分及格
+
+#【例】查询每门课程的最高分数
+SELECT course_id, MAX(score_grade) AS 最高分数
+FROM score
+WHERE score_grade IS NOT NULL
+GROUP BY course_id;
+
+#【例】查询每一个学生的平均成绩
+SELECT student_id, AVG(score_grade) AS 平均成绩
+FROM score
+WHERE score_grade IS NOT NULL
+GROUP BY student_id;
+
+#[例3.46] 求各个课程号及选修该课程的人数
+SELECT course_id, COUNT(*) AS 选修人数
+FROM score
+GROUP BY course_id;
+
+#【例】查询选修了3门以上课程的学生学号
+SELECT student_id
+FROM score
+GROUP BY student_id
+HAVING COUNT(DISTINCT course_id) > 2;
+
+#[例3.47] 查询2019年第2学期选修了10门以上课程的学生学号
+SELECT student_id
+FROM score
+WHERE score_semester LIKE '2019%' OR score_semester LIKE '%2'
+GROUP BY student_id
+HAVING COUNT(DISTINCT course_id) > 9;
+
+#【例】 查询不及格课程超过2门的学生学号
+SELECT student_id
+FROM score
+WHERE score_grade < 60
+GROUP BY student_id
+HAVING COUNT(*) > 2;
+
+#【例】 查询有10人以上不及格的课程号
+SELECT course_id
+FROM score
+WHERE score_grade < 60
+GROUP BY course_id
+HAVING COUNT(*) > 9;
+
+#[例3.48]查询平均成绩大于等于90分的学生学号和平均成绩
+SELECT student_id, AVG(score_grade) AS 平均成绩
+FROM score
+WHERE score_grade IS NOT NULL
+GROUP BY student_id
+HAVING AVG(score_grade) >= 90;
+
+#【例】 查询有两门以上不及格课程的学生学号及其平均成绩
+SELECT student_id, AVG(score_grade) AS 平均成绩
+FROM score
+WHERE student_id IN (
+    SELECT student_id
+    FROM score
+    WHERE score_grade < 60
+    GROUP BY student_id
+    HAVING COUNT(*) > 1
+)
+AND score_grade IS NOT NULL
+GROUP BY student_id;
+
+#[例3.49] 查询选修了数据库系统概论课程的成绩排名前10名的学生学号
+SELECT s.student_id
+FROM score sc
+JOIN course c ON sc.course_id = c.course_id
+WHERE c.course_name = '数据库系统概论' AND sc.score_grade IS NOT NULL
+ORDER BY sc.score_grade DESC
+LIMIT 10;
+
+#[例3.50] 查询平均成绩排名在3~5名的学生学号和平均成绩
+SELECT student_id, AVG(score_grade) AS 平均成绩
+FROM score
+WHERE score_grade IS NOT NULL
+GROUP BY student_id
+ORDER BY AVG(score_grade) DESC
+LIMIT 2, 3;  -- 从第3名开始，取3条记录（即3-5名）
+
+
+
+
