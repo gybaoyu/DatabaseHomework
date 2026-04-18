@@ -1,0 +1,118 @@
+#第3章连接查询语句
+#1.等值与非等值连接查询 
+#[例 3.51]  查询每个学生及其选修课程的情况
+SELECT s.Sno,s.Sname,sc.Cno,sc.Grade
+FROM student s,sc
+WHERE s.Sno=sc.Sno;
+
+#【例】 查询每个学生的选修成绩所对应的等级
+#建表Grading
+CREATE TABLE grading(
+    Rank CHAR(1),
+    Low INT,
+    Upp INT
+);
+#在表Grading中插入数据
+INSERT INTO grading VALUES('A',85,100);
+INSERT INTO grading VALUES('B',75,84);
+INSERT INTO grading VALUES('C',65,74);
+INSERT INTO grading VALUES('D',60,64);
+INSERT INTO grading VALUES('F',0,59);
+#查询表Grading
+SELECT * FROM grading;
+SELECT * FROM sc;
+SELECT sc.Sno,sc.Cno,sc.Grade,g.Rank
+FROM sc,grading g
+WHERE sc.Grade BETWEEN g.Low AND g.Upp;
+
+#2.自然连接查询
+#[例 3.52] 查询每个学生及其选修课程的情况（[例 3.51]）
+SELECT Sno,Sname,Cno,Grade
+FROM student NATURAL JOIN sc;
+
+#3.复合条件连接查询
+#[例 3.53] 查询选修810022号课程且成绩在90分以上的所有学生的学号和姓名
+SELECT s.Sno,s.Sname
+FROM student s,sc
+WHERE s.Sno=sc.Sno
+  AND sc.Cno='81002'
+  AND sc.Grade>90;
+
+#【例】 查询每门课程的选修成绩表（等级制）
+SELECT c.Cno,c.Cname,sc.Sno,sc.Grade,g.Rank
+FROM course c,sc,grading g
+WHERE c.Cno=sc.Cno
+  AND sc.Grade BETWEEN g.Low AND g.Upp
+ORDER BY c.Cno,sc.Grade DESC;
+
+#4. 自身连接查询
+#[例 3.54] 查询每一门课的间接先修课（即先修课的先修课）
+SELECT c1.Cno,c2.Cpno AS indirect_cpno
+FROM course c1,course c2
+WHERE c1.Cpno=c2.Cno;
+
+#【例】 查询年龄有差异的任意两位同学的姓名
+SELECT s1.Sname,s2.Sname
+FROM student s1,student s2
+WHERE s1.Sage<>s2.Sage
+  AND s1.Sno<s2.Sno;
+
+#【例】 查询81001号课程有成绩差的任意两位同学学号
+SELECT a.Sno,b.Sno
+FROM sc a,sc b
+WHERE a.Cno='81001'
+  AND b.Cno='81001'
+  AND a.Grade<>b.Grade
+  AND a.Sno<b.Sno;
+
+#【例】 查询既学过81001号课程又学过81002号课程的所有学生学号
+SELECT a.Sno
+FROM sc a,sc b
+WHERE a.Sno=b.Sno
+  AND a.Cno='81001'
+  AND b.Cno='81002';
+
+#【例】 查询81001号课程成绩比81002号课程成绩高的所有学生的学号
+SELECT a.Sno
+FROM sc a,sc b
+WHERE a.Sno=b.Sno
+  AND a.Cno='81001'
+  AND b.Cno='81002'
+  AND a.Grade>b.Grade;
+
+#【例】 查询没有学过数据结构课程的所有同学的姓名
+SELECT Sname 
+FROM Student S,Course C,Sc
+WHERE C.Cname<>'数据结构' AND
+		S.Sno=Sc.Sno AND
+		C.Cno=Sc.Cno;
+#
+SELECT * FROM course;
+SELECT * FROM sc;
+#查询结果正确吗？如果不对，哪里出了问题？
+-- 不正确。该写法会把“学过数据结构但也学过其他课”的学生错误查出来。
+-- 正确写法应排除“存在数据结构选课记录”的学生：
+SELECT s.Sname
+FROM student s
+WHERE NOT EXISTS(
+    SELECT 1
+    FROM sc JOIN course c ON sc.Cno=c.Cno
+    WHERE sc.Sno=s.Sno AND c.Cname='数据结构'
+);
+
+#5. 外连接查询
+#[例3.55] 改写[例3.51]查询每个学生及其选修课程的情况，若某个学生没有选课，只输出其基本情况，选课信息填为空
+SELECT s.Sno,s.Sname,sc.Cno,sc.Grade
+FROM student s LEFT JOIN sc ON s.Sno=sc.Sno;
+
+#6. 多表连接查询
+#[例3.56] 查询每个学生的学号、姓名、选修的课程名及成绩
+SELECT s.Sno,s.Sname,c.Cname,sc.Grade
+FROM student s,sc,course c
+WHERE s.Sno=sc.Sno
+  AND sc.Cno=c.Cno;
+
+#7、交叉连接
+#【例】交叉连接（笛卡尔积）
+SELECT *
+FROM student CROSS JOIN course;
