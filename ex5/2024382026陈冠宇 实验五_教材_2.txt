@@ -1,0 +1,259 @@
+#第3章嵌套查询语句
+#[例 3.57]  查询与“刘晨”在同一个主修专业学习的学生学号、姓名和主修专业
+#（1）使用IN谓词
+SELECT Sno,Sname,Smajor
+FROM student
+WHERE Smajor IN(
+    SELECT Smajor
+    FROM student
+    WHERE Sname='刘晨'
+);
+
+#（2）使用连接查询
+SELECT s1.Sno,s1.Sname,s1.Smajor
+FROM student s1,student s2
+WHERE s1.Smajor=s2.Smajor
+  AND s2.Sname='刘晨';
+
+#（3）使用连接查询，用JOIN...ON...表示连接条件
+SELECT s1.Sno,s1.Sname,s1.Smajor
+FROM student s1 JOIN student s2 ON s1.Smajor=s2.Smajor
+WHERE s2.Sname='刘晨';
+
+#【例】 查询选修了1号课程的学生的学号、姓名
+SELECT s.Sno,s.Sname
+FROM student s
+WHERE s.Sno IN(
+    SELECT Sno
+    FROM sc
+    WHERE Cno='1'
+);
+
+#【例】 查询既选修了1号又选修了2号课程的学生学号
+SELECT Sno
+FROM sc
+WHERE Cno IN('1','2')
+GROUP BY Sno
+HAVING COUNT(DISTINCT Cno)=2;
+
+#[例 3.58]查询选修了课程名为“信息系统概论”的学生学号和姓名
+#（1）嵌套查询，使用IN谓词
+SELECT Sno,Sname
+FROM student
+WHERE Sno IN(
+    SELECT Sno
+    FROM sc
+    WHERE Cno IN(
+        SELECT Cno
+        FROM course
+        WHERE Cname='信息系统概论'
+    )
+);
+
+#（2）连接查询
+SELECT s.Sno,s.Sname
+FROM student s,sc,course c
+WHERE s.Sno=sc.Sno
+  AND sc.Cno=c.Cno
+  AND c.Cname='信息系统概论';
+
+#（3）连接查询，使用JOIN...ON...
+SELECT s.Sno,s.Sname
+FROM student s
+JOIN sc ON s.Sno=sc.Sno
+JOIN course c ON sc.Cno=c.Cno
+WHERE c.Cname='信息系统概论';
+
+#【例】 查询没有选修81003号课程的学生的学号、成绩。
+SELECT Sno,Grade
+FROM sc
+WHERE Sno NOT IN(
+    SELECT Sno
+    FROM sc
+    WHERE Cno='81003'
+);
+#下面的查询结果符合要求吗？
+SELECT Sno, Grade
+FROM SC
+WHERE Cno<> '81003' ;
+#
+SELECT * FROM sc;
+
+#查询结果正确吗？如果不对，哪里出了问题？
+-- 不正确。该写法只去掉了“课程号=81003”的行，
+-- 但没有排除“选过81003且还选过其他课”的学生。
+
+#[例 3.57] 查询与“刘晨”在同一个系学习的学生
+#带有比较运算符的子查询
+SELECT Sno,Sname,Sdept
+FROM student
+WHERE Sdept=(
+    SELECT Sdept
+    FROM student
+    WHERE Sname='刘晨'
+);
+
+#[例3.59]  找出每个学生超过他自己选修课程平均成绩的课程号
+SELECT x.Sno,x.Cno
+FROM sc x
+WHERE x.Grade>(
+    SELECT AVG(y.Grade)
+    FROM sc y
+    WHERE y.Sno=x.Sno
+);
+
+#【例】 找出每个学生超过他所选修那门课程的平均成绩的课程号。
+SELECT x.Sno,x.Cno
+FROM sc x
+WHERE x.Grade>(
+    SELECT AVG(y.Grade)
+    FROM sc y
+    WHERE y.Cno=x.Cno
+);
+
+#[例3.60]  查询非计算机科学与技术专业中比计算机科学与技术专业任意一个学生年龄小（出生日期晚）的学生姓名、出生日期和主修专业
+#(1)用ANY谓词
+SELECT Sname,Sbirthdate,Smajor
+FROM student
+WHERE Smajor<>'计算机科学与技术'
+  AND Sbirthdate>ANY(
+      SELECT Sbirthdate
+      FROM student
+      WHERE Smajor='计算机科学与技术'
+  );
+#(2)用SOME谓词
+SELECT Sname,Sbirthdate,Smajor
+FROM student
+WHERE Smajor<>'计算机科学与技术'
+  AND Sbirthdate>SOME(
+      SELECT Sbirthdate
+      FROM student
+      WHERE Smajor='计算机科学与技术'
+  );
+#(3)用聚集函数实现[例 3.60]
+SELECT Sname,Sbirthdate,Smajor
+FROM student
+WHERE Smajor<>'计算机科学与技术'
+  AND Sbirthdate>(
+      SELECT MIN(Sbirthdate)
+      FROM student
+      WHERE Smajor='计算机科学与技术'
+  );
+
+#[例 3.59]  查询非计算机科学与技术专业中比计算机科学与技术专业所有学生年龄都小（出生日期晚）的学生姓名、出生日期
+#（1）用ALL谓词
+SELECT Sname,Sbirthdate
+FROM student
+WHERE Smajor<>'计算机科学与技术'
+  AND Sbirthdate>ALL(
+      SELECT Sbirthdate
+      FROM student
+      WHERE Smajor='计算机科学与技术'
+  );
+#（2）用聚集函数
+SELECT Sname,Sbirthdate
+FROM student
+WHERE Smajor<>'计算机科学与技术'
+  AND Sbirthdate>(
+      SELECT MAX(Sbirthdate)
+      FROM student
+      WHERE Smajor='计算机科学与技术'
+  );
+
+#[例 3.62]查询所有选修了81001号课程的学生姓名。
+#（1）使用EXISTS谓词
+SELECT Sname
+FROM student s
+WHERE EXISTS(
+    SELECT 1
+    FROM sc
+    WHERE sc.Sno=s.Sno
+      AND sc.Cno='81001'
+);
+#（2）使用IN谓词
+SELECT Sname
+FROM student
+WHERE Sno IN(
+    SELECT Sno
+    FROM sc
+    WHERE Cno='81001'
+);
+#下面的查询与前两个查询结果是否一致？为什么？
+SELECT Sname
+FROM Student
+WHERE EXISTS (SELECT *
+				  FROM SC
+				  WHERE Cno= '81001');
+
+#[例 3.63]  查询没有选修81001号课程的学生姓名。
+#使用EXISTS谓词
+SELECT Sname
+FROM student s
+WHERE NOT EXISTS(
+    SELECT 1
+    FROM sc
+    WHERE sc.Sno=s.Sno
+      AND sc.Cno='81001'
+);
+#下面的查询为什么与上面的查询的结果不相同？
+SELECT Sno,Sname
+FROM Student
+WHERE NOT EXISTS(SELECT *
+					  FROM SC
+					  WHERE Cno='81001');
+
+
+#[例 3.57]查询与“刘晨”在同一专业学习的学生。
+#用带EXISTS谓词的子查询
+SELECT s1.Sno,s1.Sname,s1.Smajor
+FROM student s1
+WHERE EXISTS(
+    SELECT 1
+    FROM student s2
+    WHERE s2.Sname='刘晨'
+      AND s2.Smajor=s1.Smajor
+);
+
+#[例 3.64] 查询选修了全部课程的学生姓名。
+#是否选修了course中的全部课程
+SELECT Sname
+FROM student s
+WHERE NOT EXISTS(
+    SELECT 1
+    FROM course c
+    WHERE NOT EXISTS(
+        SELECT 1
+        FROM sc
+        WHERE sc.Sno=s.Sno
+          AND sc.Cno=c.Cno
+    )
+);
+#是否选修了sc中的全部课程
+SELECT Sname
+FROM student s
+WHERE NOT EXISTS(
+    SELECT 1
+    FROM (SELECT DISTINCT Cno FROM sc) t
+    WHERE NOT EXISTS(
+        SELECT 1
+        FROM sc
+        WHERE sc.Sno=s.Sno
+          AND sc.Cno=t.Cno
+    )
+);
+
+#[例 3.65]查询至少选修了学生20180002选修的全部课程的学生号码。
+#用NOT EXISTS谓词
+SELECT DISTINCT s1.Sno
+FROM sc s1
+WHERE NOT EXISTS(
+    SELECT 1
+    FROM sc s2
+    WHERE s2.Sno='20180002'
+      AND NOT EXISTS(
+          SELECT 1
+          FROM sc s3
+          WHERE s3.Sno=s1.Sno
+            AND s3.Cno=s2.Cno
+      )
+);
