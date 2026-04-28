@@ -1,0 +1,90 @@
+#第3章集合查询语句
+#[例3.66]  查询计算机科学与技术专业的学生及年龄不大于19岁的学生。
+SELECT Sno,Sname,Smajor,Sage
+FROM student
+WHERE Smajor='计算机科学与技术'
+UNION
+SELECT Sno,Sname,Smajor,Sage
+FROM student
+WHERE Sage<=19;
+
+#[例 3.67] 查询2020年第2学期选修了课程81001或者选修了课程81002的学生
+SELECT Sno
+FROM sc
+WHERE Cterm='2020-2' AND Cno='81001'
+UNION
+SELECT Sno
+FROM sc
+WHERE Cterm='2020-2' AND Cno='81002';
+
+#不用union
+SELECT DISTINCT Sno
+FROM sc
+WHERE Cterm='2020-2'
+  AND Cno IN('81001','81002');
+
+#[例3.68] 查询计算机科学与技术专业的学生与年龄不大于19岁的学生的交集
+SELECT Sno,Sname,Smajor,Sage
+FROM student
+WHERE Smajor='计算机科学与技术'
+INTERSECT
+SELECT Sno,Sname,Smajor,Sage
+FROM student
+WHERE Sage<=19;
+
+#不用intersect
+SELECT Sno,Sname,Smajor,Sage
+FROM student
+WHERE Smajor='计算机科学与技术'
+  AND Sage<=19;
+
+#[例 3.69] 查询既选修了课程81001又选修了课程81002的学生。
+#集合查询
+SELECT Sno
+FROM sc
+WHERE Cno='81001'
+INTERSECT
+SELECT Sno
+FROM sc
+WHERE Cno='81002';
+
+#嵌套查询
+SELECT DISTINCT a.Sno
+FROM sc a
+WHERE a.Cno='81001'
+  AND a.Sno IN(
+      SELECT Sno
+      FROM sc
+      WHERE Cno='81002'
+  );
+
+#[例 3.70]查询计算机科学与技术专业的学生与年龄不大于19岁的学生的差集。
+SELECT Sno,Sname,Smajor,Sage
+FROM student
+WHERE Smajor='计算机科学与技术'
+EXCEPT
+SELECT Sno,Sname,Smajor,Sage
+FROM student
+WHERE Sage<=19;
+
+#【例】 查询没选修81002号课程的学生学号
+	#查询结果有误
+	Select Sno From SC Where Cno <> '81002';
+
+	#正确操作：集合查询，从所有学生选课学生中差掉学过81002号课的学生
+	SELECT DISTINCT Sno
+	FROM sc
+	EXCEPT
+	SELECT DISTINCT Sno
+	FROM sc
+	WHERE Cno='81002';
+
+	#正确操作：嵌套查询，对于某个学生来说，不存在其选修81002号课的记录
+	SELECT DISTINCT s1.Sno
+	FROM sc s1
+	WHERE NOT EXISTS(
+	    SELECT 1
+	    FROM sc s2
+	    WHERE s2.Sno=s1.Sno
+	      AND s2.Cno='81002'
+	);

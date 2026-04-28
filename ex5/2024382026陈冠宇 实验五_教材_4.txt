@@ -1,0 +1,63 @@
+#第3章派生查询语句演示
+#[例3.59] 找出每个学生超过他自己选修课程平均成绩的课程号
+#原始写法（相关子查询）
+SELECT x.Sno,x.Cno
+FROM sc x
+WHERE x.Grade>(
+    SELECT AVG(y.Grade)
+    FROM sc y
+    WHERE y.Sno=x.Sno
+);
+
+#改写为：派生表（先求每个学生平均成绩，再连接）
+CREATE TABLE avg_sc
+AS
+SELECT Sno AS avg_sno,AVG(Grade) AS avg_grade
+FROM sc
+GROUP BY Sno;
+
+SELECT * FROM avg_sc;
+
+SELECT sc.Sno,sc.Cno
+FROM sc,avg_sc
+WHERE sc.Sno=avg_sc.avg_sno
+  AND sc.Grade>avg_sc.avg_grade;
+
+#不建表，直接使用FROM子查询（派生表）
+SELECT sc.Sno,sc.Cno
+FROM sc,
+     (SELECT Sno,AVG(Grade) AS avg_grade
+      FROM sc
+      GROUP BY Sno) t
+WHERE sc.Sno=t.Sno
+  AND sc.Grade>t.avg_grade;
+
+#[例3.62] 查询所有选修了81001号课程的学生姓名
+#原始写法（EXISTS）
+SELECT Sname
+FROM student s
+WHERE EXISTS(
+    SELECT 1
+    FROM sc
+    WHERE sc.Sno=s.Sno
+      AND sc.Cno='81001'
+);
+
+#改写为：派生表连接
+SELECT s.Sname
+FROM student s,
+     (SELECT DISTINCT Sno
+      FROM sc
+      WHERE Cno='81001') t
+WHERE s.Sno=t.Sno;
+
+#扩展：先建派生结果表再查询
+CREATE TABLE sc_81001
+AS
+SELECT DISTINCT Sno
+FROM sc
+WHERE Cno='81001';
+
+SELECT s.Sname
+FROM student s,sc_81001 t
+WHERE s.Sno=t.Sno;
