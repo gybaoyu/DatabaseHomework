@@ -1,0 +1,92 @@
+--1、在SQLServer中，修改表结构后，select中未指定属性列的视图不能正常使用
+CREATE VIEW F_Student(F_Sno,name,sex,age,dept) 
+AS
+SELECT * /*没有指定属性列*/
+FROM Student
+WHERE Ssex='女';
+go
+
+SELECT * FROM f_student;
+
+ALTER TABLE student ADD birth DATE NULL;
+SELECT * FROM student;
+ALTER TABLE student DROP COLUMN birth;
+
+DROP VIEW f_student;
+go
+
+
+--2、在SQLServer中，删除视图is_s1,在is_s1上有定义的有视图is_s2
+CREATE VIEW IS_S1(Sno,Sname,Grade)
+AS
+SELECT Student.Sno,Sname,Grade
+FROM Student,SC
+WHERE Sdept= 'CS' 
+		AND Student.Sno=SC.Sno 
+		AND SC.Cno= '1';
+go
+SELECT * FROM IS_S1;
+go
+CREATE VIEW IS_S2 
+AS
+SELECT Sno,Sname,Grade
+FROM IS_S1
+WHERE Grade>=90;
+go
+SELECT * FROM is_s2;
+go
+
+--下面语句，在SQLServer中，语法有误；在MySQL中，可执行，但其中的cascade功能被忽略
+drop view is_s1 --cascade;
+
+drop table student;
+go
+
+
+--3、在视图上修改数据
+CREATE VIEW is_student 
+AS
+SELECT Sno,Sname,Sage
+FROM Student
+WHERE Sdept='IS';
+go
+UPDATE IS_Student SET Sname= '刘辰'
+WHERE Sno= '201215122';
+
+SELECT * FROM is_student;
+SELECT * FROM student ;
+go
+
+INSERT
+INTO IS_Student
+VALUES('201215129','赵新',20);
+--student中增加了赵新的信息
+SELECT * FROM is_student;
+SELECT * FROM student;
+
+DELETE
+FROM IS_Student
+WHERE Sno= '201215129';
+go
+
+CREATE VIEW S_G(Sno,Gavg) AS
+SELECT Sno, AVG(Grade)
+FROM SC
+GROUP BY Sno;
+go
+UPDATE S_G
+SET Gavg=90
+WHERE  Sno='201215121';
+
+go
+create view SdeptStud(Sname, Sdept)
+AS
+SELECT Sname, Sdept
+FROM student;
+go
+Insert into SdeptStud
+VALUES ( '张三', 'MA' );
+
+
+INSERT INTO is_s1 VALUEs('201215125','张',85);
+select * from is_s1;

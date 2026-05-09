@@ -1,0 +1,243 @@
+#第3章视图语句练习
+#1、创建视图
+#[例3.86]  建立信息管理与信息系统专业学生的视图IS_student
+CREATE VIEW IS_Student
+AS
+SELECT Sno,Sname,Ssex,Sbirthdate,Smajor
+FROM Student
+WHERE Smajor='信息管理与信息系统';
+
+SELECT * FROM IS_Student;
+
+#[例3.87] 建立信息管理与信息系统专业学生的视图IS_student_Check，要求进行修改和插入操作时仍需保证该视图只有信息管理与信息系统专业的学生
+CREATE VIEW IS_Student_Check
+AS
+SELECT Sno,Sname,Ssex,Sbirthdate,Smajor
+FROM Student
+WHERE Smajor='信息管理与信息系统'
+WITH CHECK OPTION;
+
+SELECT * FROM IS_Student_Check;
+
+#基于多个基表的视图
+#[例3.88]  建立信息管理与信息系统专业选修了81001号课程的学生的视图IS_C1（包括学号、姓名、成绩）
+CREATE VIEW IS_C1(Sno,Sname,Grade)
+AS
+SELECT Student.Sno,Sname,Grade
+FROM Student,SC
+WHERE Smajor='信息管理与信息系统'
+  AND Student.Sno=SC.Sno
+  AND SC.Cno='81001';
+
+SELECT * FROM IS_C1;
+
+#基于视图的视图
+#[例3.89]  建立信息管理与信息系统专业选修了81001号课程且成绩在90分以上的学生的视图IS_C2
+CREATE VIEW IS_C2
+AS
+SELECT *
+FROM IS_C1
+WHERE Grade>=90;
+
+SELECT * FROM IS_C2;
+
+#带表达式的视图
+#[例3.90]  定义一个反映学生年龄的视图S_AGE
+CREATE VIEW S_AGE(Sno,Sname,Sage)
+AS
+SELECT Sno,Sname,TIMESTAMPDIFF(YEAR,Sbirthdate,CURDATE())
+FROM Student;
+
+SELECT * FROM S_AGE;
+
+#分组视图
+#[例3.91]  将学生的学号及平均成绩定义为一个视图S_GradeAVG
+CREATE VIEW S_GradeAVG(Sno,Gavg)
+AS
+SELECT Sno,AVG(Grade)
+FROM SC
+GROUP BY Sno;
+
+SELECT * FROM S_GradeAVG;
+
+#[例3.92] 将Student表中所有女生记录定义为一个视图F_Student
+CREATE VIEW F_Student
+AS
+SELECT *
+FROM Student
+WHERE Ssex='女';
+
+SELECT * FROM F_Student;
+
+#修改student表结构（增加一个新列test_column），再对F_Student进行查询，结果如何？
+SELECT * FROM F_Student;
+
+ALTER TABLE student ADD COLUMN test_column INT;
+
+SELECT * FROM F_Student;
+ALTER TABLE student DROP COLUMN test_column;
+#修改student表结构，用相同的语句创建F_Student结果如何？
+CREATE OR REPLACE VIEW F_Student
+AS
+SELECT *
+FROM Student
+WHERE Ssex='女';
+
+SELECT * FROM F_Student;
+
+#2、删除视图
+#[例3.93] 删除视图S_AGE和IS_C1
+DROP VIEW S_AGE;
+
+DROP VIEW IS_C1;
+
+SHOW FULL TABLES WHERE TABLE_TYPE='VIEW';
+
+#3、查询视图
+#[例3.94]  在信息管理与信息系统专业学生的视图IS_Student中找出年龄小于20岁的学生
+SELECT *
+FROM IS_Student
+WHERE TIMESTAMPDIFF(YEAR,Sbirthdate,CURDATE())<20;
+
+SELECT * FROM IS_Student;
+
+#[例3.95]  查询选修了81001号课程的信息管理与信息系统专业学生
+SELECT *
+FROM IS_C2
+UNION
+SELECT *
+FROM IS_C1;
+
+SELECT * FROM IS_C1;
+
+#[例3.96] 在S_GradeAVG视图中查询平均成绩在90分以上的学生学号和平均成绩
+#视图S_GradeAVG的定义
+/*CREATE VIEW S_GradeAVG(Sno,Gavg) AS
+SELECT Sno, AVG(Grade)
+FROM SC
+GROUP BY Sno;
+*/
+SELECT Sno,Gavg
+FROM S_GradeAVG
+WHERE Gavg>=90;
+
+SELECT * FROM S_GradeAVG;
+
+#[例3.96]也可以用如下SQL语句完成
+SELECT *
+FROM  (SELECT Sno,AVG(Grade)
+	    FROM  SC 
+ 	    GROUP BY Sno) AS S_G(Sno,Gavg)
+WHERE Gavg>=90;
+
+
+#4、更新视图
+#可更新视图
+#在无with check option选项的视图IS_Student中修改、插入、删除数据
+#在有with check option选项的视图IS_Student_Check中修改、插入、删除数据
+#[例3.97]  将信息管理与信息系统专业学生视图IS_Student中学号20180005的学生姓名改为刘新奇
+UPDATE IS_Student
+SET Sname='刘新奇'
+WHERE Sno='20180005';
+
+SELECT * FROM IS_Student WHERE Sno='20180005';
+
+#下面的UPDATE语句执行结果如何？
+UPDATE  IS_Student
+SET  Sname= '刘星辰'
+WHERE  Sno= '20180002';
+
+UPDATE  IS_Student_Check
+SET  Sname= '刘晨2'
+WHERE  Sno= '20180002';
+
+
+SELECT * FROM Student;
+SELECT * FROM IS_Student;
+SELECT * FROM IS_Student_Check;
+
+
+#[例3.98]  向信息管理与信息系统专业学生视图IS_Student中插入一个新的学生记录(20180207，赵新，男，2001-7-19）
+INSERT
+INTO IS_Student(Sno,Sname,Ssex,Sbirthdate,Smajor)
+VALUES('20180207','赵新','男','2001-7-19' ,'信息管理与信息系统');
+
+#向IS_student插入数据结果如何？
+INSERT
+INTO IS_student
+VALUES('20180207','赵新','男','2001-7-19' ,'信息管理与信息系统');
+
+#向IS_student插入数据结果如何？
+INSERT
+INTO IS_student(Sno,Sname,Ssex,Sbirthdate)
+VALUES('20180208','赵新2','男','2001-7-19');
+
+#向IS_student_Check插入数据结果如何？
+INSERT
+INTO IS_student_Check(Sno,Sname,Ssex,Sbirthdate)
+VALUES('20180209','赵新3','男','2001-7-19');
+
+
+#[例3.99] 删除信息管理与信息系统专业学生视图IS_student中学号“20180207”的记录。
+#student表中已经插入例3.98中的数据
+SELECT * FROM student;
+
+DELETE
+FROM IS_student
+WHERE Sno= '20180207';
+
+#在MySQL中，下面的语句能否删除Sno= '20180208'的记录？
+DELETE
+FROM IS_student
+WHERE Sno= '20180208';
+
+#在MySQL中，下面的语句能否删除Sno= '20180208'的记录？
+DELETE
+FROM IS_student_Check
+WHERE Sno= '20180208';
+
+#在MySQL中执行下面的DELETE语句，观察结果
+DELETE
+FROM IS_student
+WHERE Sno= '20180208';
+
+DELETE
+FROM IS_student
+WHERE Sno= '20180001';
+
+#不可更新的视图
+#例3.91定义的视图S_GradeAVG为不可更新视图
+#下面的修改语句能否完成修改？
+UPDATE  S_GradeAVG
+SET  Gavg=90
+WHERE  Sno='20180207';
+
+SELECT * FROM S_GradeAVG;
+
+
+#[例] 
+create view SmajorStud(Sname, Smajor) 
+AS  
+SELECT Sname, Smajor
+FROM Student;
+
+SELECT * FROM smajorstud;
+SELECT * FROM student;
+#如要进行下面的更新操作,能否由视图SmajorStud的更新而更新Student呢?
+INSERT INTO SmajorStud VALUES ('张三', 'MA' );
+
+
+
+#基于多个基表的视图的更新
+#[例3.88]  建立信息管理与信息系统专业选修了81001号课程的学生的视图（包括学号、姓名、成绩）。
+/*CREATE VIEW IS_C1(Sno,Sname,Grade)
+AS 
+SELECT Student.Sno,Sname,Grade
+FROM   Student,SC
+WHERE  Smajor= '信息管理与信息系统' 
+		 AND Student.Sno=SC.Sno 
+		 AND SC.Cno= '81001';
+*/		 
+
+#下面语句无法将数据插入is_c1中（多个基本表连接得到的视图不可更新）
+INSERT INTO IS_C1(Sno,Sname,Grade) VALUE('20180099','张三',85);

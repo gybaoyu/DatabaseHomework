@@ -1,0 +1,273 @@
+#第3章更新语句
+#[例3.71]将一个新学生元组（学号：20180009；姓名：陈冬；性别：男；出生日期：2000-5-22，主修专业：信息管理与信息管理与信息系统专业统）插入到Student表中。
+INSERT INTO Student(Sno,Sname,Ssex,Sbirthdate,Smajor)
+VALUES ('20180009','陈冬','男','2000-5-22','信息管理与信息系统专业统');
+
+SELECT * FROM student;
+
+#[例3.72]将学生张成民的信息插入到Student表中。
+INSERT INTO Student
+VALUES ('20180010','张成民','男','2000-06-01','信息管理与信息系统');
+
+SELECT * FROM student;
+	 
+#下面的语句能否成功执行？
+INSERT  INTO  Student
+VALUES ('20180010', '陈冬1', '男','信息管理与信息系统专业统', '2000-5-22');
+SELECT * FROM student;
+
+#下面的语句能否成功执行？
+INSERT 
+INTO student 
+VALUES ('陈冬2','20180010','男', '2000-5-22','信息管理与信息系统专业统');
+
+
+#下面的语句执行结果？ssex=?
+INSERT 
+INTO Student(Sno,Sname,Smajor,Sbirthdate) 
+VALUES ('陈冬3','20180011', '信息管理与信息系统专业统','2000-5-22');
+
+#[例3.73] 插入一条选课记录
+#将在新插入记录的Grade列上自动地赋空值
+INSERT INTO SC(Sno,Cno,Semester,Teachingclass)
+VALUES ('20180009','81001','20201','20200101');
+
+SELECT * FROM sc;
+ 
+#下面的语句能否成功执行？
+INSERT
+INTO SC
+VALUES ('20180005','81005');
+ 
+#[例3.74]  对每一个专业求学生的平均年龄，并把结果存入数据库
+#第一步：建表
+CREATE TABLE S_Age(
+    Smajor VARCHAR(40),
+    AvgAge DECIMAL(4,1)
+);
+         
+ 
+ 	
+
+#第二步：插入数据
+INSERT INTO S_Age(Smajor,AvgAge)
+SELECT Smajor,AVG(TIMESTAMPDIFF(YEAR,Sbirthdate,CURDATE()))
+FROM Student
+GROUP BY Smajor;
+
+SELECT * FROM S_Age;
+
+#[例3.75]  将学生20180001的出生日期改为2001年3月18日
+UPDATE Student
+SET Sbirthdate='2001-03-18'
+WHERE Sno='20180001';
+
+SELECT * FROM student WHERE Sno='20180001';
+
+#[例3.76]  将2020年第1学期选修81002课程所有学生的成绩减少5分
+UPDATE SC
+SET Grade=Grade-5
+WHERE Cno='81002' AND Semester='20201';
+
+SELECT * FROM sc WHERE Cno='81002' AND Semester='20201';
+
+#[例] 将所有学生的成绩增加10分
+UPDATE SC
+SET Grade=Grade+10
+WHERE Grade IS NOT NULL;
+
+SELECT * FROM sc;
+
+#[例]  将所有学生成绩上调5%(将所有教师工资上调5%)
+UPDATE SC
+SET Grade=ROUND(Grade*1.05,1)
+WHERE Grade IS NOT NULL;
+
+SELECT * FROM sc;
+
+#[例3.77]  将计算机科学与技术专业全体学生的成绩置零
+SELECT * FROM sc;
+#（1）教材书写方式
+UPDATE SC
+SET Grade=0
+WHERE Sno IN(
+    SELECT Sno
+    FROM Student
+    WHERE Smajor='计算机科学与技术'
+);
+
+SELECT * FROM sc;
+
+#（2）下面的语句在MySQL中可执行完成修改，但在SQLServer中语法有误无法执行
+UPDATE sc,student
+SET Grade=10
+WHERE sc.Sno=student.Sno and Smajor= '计算机科学与技术';
+
+SELECT * FROM sc JOIN student ON sc.Sno=student.Sno;
+
+DELETE FROM sc;
+
+#【例】当某同学81001号课程的成绩低于该课程平均成绩时，将该同学该门课程成绩提高5%
+SELECT * FROM sc;
+#下面的UPDATA语句，在ＭySQL中执行结果如何？（报错）在SQLServer中执行结果如何？（按预期执行）
+UPDATE SC SET Grade=Grade*1.05
+WHERE Cno='81001' AND Grade<(
+										SELECT AVG(Grade)
+										FROM SC
+										WHERE Cno= '81001');
+
+#在MySQL中，修改上面的UPDATE语句为下面的形式
+#(1)
+CREATE TABLE sc1 
+SELECT *
+FROM sc;
+
+UPDATE sc1
+SET Grade=Grade*1.05
+WHERE Cno='81001'
+  AND Grade<(SELECT AVG(Grade) FROM SC WHERE Cno='81001');
+
+SELECT * FROM sc1;
+
+#(2)		  
+CREATE TABLE avg_grade 
+SELECT AVG(Grade) AS avg_grade
+FROM SC
+WHERE Cno= '81001';
+
+UPDATE sc1
+SET Grade=Grade*1.05
+WHERE Cno='81001'
+  AND Grade<(SELECT avg_grade FROM avg_grade);
+
+SELECT * FROM avg_grade;
+SELECT * FROM sc1;
+
+#[例] 将张三（李勇）同学81001号课程的成绩置为其专业该门课程的平均成绩
+SELECT * FROM sc;
+#下面的UPDATE语句，在MySQL中执行结果如何？（报错）在SQLServer中执行结果如何？（按预期执行）
+UPDATE SC
+SET Grade= (SELECT AVG(Grade)
+		      FROM  SC  
+		      WHERE Cno='81001'  
+			         AND Sno IN (SELECT Sno 
+					       			FROM Student  
+					       			WHERE  Smajor= (SELECT Smajor 
+							         					 FROM Student 
+															 WHERE Sname= '张三')))
+WHERE Cno='81001'  AND Sno IN (SELECT Sno 
+										 FROM Student 
+										 WHERE Sname= '张三');
+
+#在MySQL中，修改上面的UPDATE语句为下面的形式
+CREATE TABLE avg_grade_张三81001
+SELECT AVG(Grade)
+FROM SC
+WHERE Cno='81001' 
+		AND
+		Sno IN(SELECT Sno
+				 FROM Student
+				 WHERE Smajor= (SELECT Smajor
+									 FROM Student
+									 WHERE Sname='张三'));  
+UPDATE sc 
+SET Grade= (SELECT *	FROM avg_grade_张三81001)
+WHERE Cno='81001' 
+		AND 
+		Sno IN (SELECT Sno
+				  FROM Student
+				  WHERE Sname='张三');
+				  
+SELECT * FROM sc JOIN student ON sc.Sno=student.Sno;
+
+SELECT * FROM avg_grade_张三81001;
+
+
+#[例3.78] 删除学号为20180007的学生记录
+DELETE
+FROM Student
+WHERE Sno='20180007';
+
+SELECT * FROM student;
+
+#下面的DELETE语句执行结果如何？
+DELETE
+FROM Student
+WHERE Sno= '20180001';
+
+
+#下面的DELETE语句执行结果如何？
+DELETE FROM sc WHERE Sno= '20180001';
+
+
+
+#[例3.79]  删除所有的学生选课记录
+DELETE
+FROM SC;
+
+SELECT * FROM sc;
+
+#[例3.80]  删除计算机科学与技术专业所有学生的选课记录
+DELETE FROM SC
+WHERE Sno IN(
+    SELECT Sno
+    FROM Student
+    WHERE Smajor='计算机科学与技术'
+);
+
+SELECT * FROM sc;
+
+#[例]  删除有四门不及格课程的所有同学的基本信息
+DELETE FROM Student
+WHERE Sno IN(
+    SELECT Sno
+    FROM (
+        SELECT Sno
+        FROM SC
+        WHERE Grade<60
+        GROUP BY Sno
+        HAVING COUNT(*)>=4
+    ) AS t
+);
+
+SELECT * FROM student;
+
+#UPDATE可修改多列的值
+SELECT * FROM student;
+
+UPDATE student 
+SET sname='张三' ,smajor='数据科学与大数据技术'
+WHERE sno='20180008';
+
+SELECT * FROM student;
+
+#在MySQL中可修改多个表的内容
+#（1）
+UPDATE sc,student 
+SET grade=15,Sbirthdate='2011-05-22'
+where sc.sno='20180001' or Sbirthdate='2014-05-22';
+
+
+SELECT * FROM sc,student where sc.sno='20180001' or Sbirthdate='2014-05-22';
+#（2）
+UPDATE sc,student 
+SET grade=45,Sbirthdate='2012-05-22'
+where sc.sno=student.sno AND sc.sno='20180001' or Sbirthdate='2011-05-22';
+
+SELECT * FROM sc;
+SELECT * FROM student;
+
+#在MySQL中删除多个表的数据
+#（1）
+DELETE sc.*,student.*
+FROM sc,student;
+#（2）
+DELETE 
+FROM sc.*,course.*
+USING sc,course;
+#（3）在MySQL中，下面语句语法有误
+DELETE
+FROM sc,course;
+#
+SELECT * FROM course;
+DELETE FROM course;

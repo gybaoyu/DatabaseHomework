@@ -1,0 +1,107 @@
+#实验六 数据更新
+#数据库：学生管理
+
+#1. 在“学生管理”数据库中生成原有各关系的数据备份
+CREATE TABLE class_bak AS SELECT * FROM class;
+CREATE TABLE student_bak AS SELECT * FROM student;
+CREATE TABLE course_bak AS SELECT * FROM course;
+CREATE TABLE score_bak AS SELECT * FROM score;
+
+#2. 向course表中增加“数据结构”课程记录
+INSERT INTO course(course_id,course_name,course_assessmentmethod,course_hours,course_credit,course_prerequisite)
+VALUES('04010106','数据结构','考试',72,4.0,NULL);
+
+#3. 插入“国际贸易081”全体学生选修“数据结构”课程的选课记录
+INSERT INTO score(student_id,course_id,score_grade,score_semester)
+SELECT s.student_id,'04010106',NULL,'202120221'
+FROM student s
+JOIN class c ON s.class_id=c.class_id
+WHERE c.class_name='国际贸易081';
+
+#4. 将田亮的入学成绩改为510分，出生日期改为2008-08-28
+UPDATE student
+SET student_entrancescore=510,
+    student_birthdate='2008-08-28'
+WHERE student_name='田亮';
+
+#5. 所有学生的入学成绩增加10分
+UPDATE student
+SET student_entrancescore=student_entrancescore+10;
+
+#6. 调整课程学分（2、2.5调为3；4调为4.5；其他加1.5）
+UPDATE course
+SET course_credit=
+CASE
+    WHEN course_credit IN (2.0,2.5) THEN 3.0
+    WHEN course_credit=4.0 THEN 4.5
+    ELSE course_credit+1.5
+END;
+
+#7. 在student表增加“选课门数”属性，并写入每个学生的选课数量
+ALTER TABLE student
+ADD COLUMN student_coursecount INT;
+
+UPDATE student s
+LEFT JOIN (
+    SELECT student_id,COUNT(*) AS cnt
+    FROM score
+    GROUP BY student_id
+) t ON s.student_id=t.student_id
+SET s.student_coursecount=IFNULL(t.cnt,0);
+
+#8. 计算每个班级中学生的平均年龄，并存入新表
+CREATE TABLE class_avg_age(
+    class_name VARCHAR(20),
+    avg_age DECIMAL(4,1)
+);
+
+INSERT INTO class_avg_age(class_name,avg_age)
+SELECT c.class_name,
+       AVG(TIMESTAMPDIFF(YEAR,s.student_birthdate,CURDATE()))
+FROM class c
+JOIN student s ON c.class_id=s.class_id
+GROUP BY c.class_name;
+
+#9. 删除成绩低于所有课程平均成绩的选课记录
+DELETE FROM score
+WHERE score_grade IS NOT NULL
+  AND score_grade<ALL(
+      SELECT avg_grade
+      FROM (
+          SELECT AVG(score_grade) AS avg_grade
+          FROM score
+          WHERE score_grade IS NOT NULL
+          GROUP BY course_id
+      ) t
+  );
+
+#10. 删除student表中姓名为“连雪飞”的学生记录
+DELETE FROM student
+WHERE student_name='连雪飞';
+
+#11. 删除student表中姓名为“凌晨”的学生记录
+DELETE FROM student
+WHERE student_name='凌晨';
+
+#12. 删除202101班所有学生的选课记录
+DELETE score
+FROM score
+JOIN student ON score.student_id=student.student_id
+WHERE student.class_id='202101';
+
+#13. 删除course表中在第2步增加的记录
+DELETE FROM score
+WHERE course_id='04010106';
+
+DELETE FROM course
+WHERE course_id='04010106';
+
+#实验思考题1：在score表增加一行数据“2021094106，04010105，95，202120221”
+INSERT INTO score(student_id,course_id,score_grade,score_semester)
+VALUES('2021094106','04010105',95,'202120221');
+#说明：若学号或课程号不存在，会因外键约束插入失败。
+
+#实验思考题2：删除student表中“张楚”的记录
+DELETE FROM student
+WHERE student_name='张楚';
+#说明：若该学生在score表中仍有选课记录，会因外键约束删除失败。
