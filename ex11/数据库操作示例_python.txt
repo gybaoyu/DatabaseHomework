@@ -1,0 +1,128 @@
+#1、使用pymysql连接MySQL服务器并创建数据库
+import pymysql
+try:
+    #连接数据库，生成连接对象
+    print("正在连接MySQL服务器......")
+    connection = pymysql.connect(host='localhost',
+                                 user='root',
+                                 password='root',
+                                 charset='utf8mb4')
+    
+    #创建游标对象
+    cursor = connection.cursor()
+    print("连接MySQL服务器成功！")
+    #创建数据库
+    database_name='mydatabase'
+    cursor.execute(f"SHOW DATABASES LIKE '{database_name}'")
+    results=cursor.fetchone()
+    if results:
+        print(f"数据库'{database_name}'已存在")
+        #可删除已有数据库再重新创建
+        #if cursor.execute(f"DROP DATABASE {database_name}"):
+        #    print(f"已删除旧数据库'{database_name}'")
+    else:
+        #创建数据库
+        create_sql=f"""CREATE DATABASE {database_name} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci ;"""
+        if cursor.execute(create_sql):
+            print(f"数据库'{database_name}'创建成功")
+except pymysql.Error as e:
+    print(f"数据库操作出错：{e}")
+
+#2、创建数据表
+cursor.execute(f"USE {database_name}")
+sql_create_student =f"""
+            CREATE TABLE IF NOT EXISTS student (
+                Sno CHAR(8) PRIMARY KEY COMMENT '学号',
+                Sname VARCHAR(20) NOT NULL COMMENT '姓名',
+                Ssex CHAR(1) DEFAULT '男' COMMENT '性别',
+                Sbirth DATE COMMENT '出生日期',
+                Sdept VARCHAR(30) COMMENT '所在院系'
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='学生表'
+        """
+sql_create_course = f"""
+            CREATE TABLE IF NOT EXISTS course (
+                Cno CHAR(5) PRIMARY KEY COMMENT '课程号',
+                Cname VARCHAR(40) NOT NULL COMMENT '课程名',
+                Credit INT COMMENT '学分',
+                Cpno CHAR(5) COMMENT '先修课程号',
+                FOREIGN KEY (Cpno) REFERENCES course(Cno) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='课程表'
+        """
+sql_create_sc = f"""
+            CREATE TABLE IF NOT EXISTS sc (
+                Sno CHAR(8) COMMENT '学号',
+                Cno CHAR(5) COMMENT '课程号',
+                Grade NUMERIC(5,1) DEFAULT NULL COMMENT '成绩',
+                PRIMARY KEY (Sno, Cno),
+                FOREIGN KEY (Sno) REFERENCES student(Sno) ON DELETE CASCADE,
+                FOREIGN KEY (Cno) REFERENCES course(Cno) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='选课表'
+        """
+tables = [
+            ("student", sql_create_student),
+            ("course", sql_create_course),
+            ("sc", sql_create_sc)
+        ]
+for table_name, sql in tables:
+    if cursor.execute(sql):
+        print(f"✓ 数据表 '{table_name}' 创建成功")
+        success_count += 1
+    else:
+        print(f"✗ 数据表 '{table_name}' 创建失败")
+
+#3、向表中插入数据
+courses=[
+        ('81001', '程序设计基础与C语言', 4, None),
+	('81002', '数据结构', 4, '81001'),
+	('81003', '数据库系统概论', 4, '81002'),
+	('81004', '信息系统概论', 4, '81003'),
+	('81005', '操作系统', 4, '81001'),
+	('81006', 'Python语言', 3, '81002'),
+	('81007', '离散数学', 4, None),
+	('81008', '大数据技术概论', 4, '81003')]
+##cursor.execute(f'delete from course')
+##connection.commit()
+sql_insert_course =f"""INSERT INTO course(Cno, Cname, Credit, Cpno) VALUES (%s, %s, %s, %s)"""
+for course in courses:
+    try:
+        cursor.execute(sql_insert_course,course)
+    except pymysql.IntegrityError:
+        print(f"课程{course[1]}已存在，跳过")
+connection.commit()
+
+#4、查询
+conn = pymysql.connect(host='127.0.0.1',    #MySQL服务器地址
+                       user='root',         #用户名
+                       password='root',     #密码
+                       database='学生选课', #数据库名
+                       port=3306            #MySQL默认端口
+                       )
+
+student = input('请输入学生学号：')
+course = input('请输入课程名称：')
+#构造查询语句字符串：查询学生中选修某门课程分数最高的学生学号、姓名和所得分数
+sql = "SELECT SC.sno,sname,grade FROM sc,student,course\
+        WHERE sc.sno = student.sno and sc.cno=course.cno\
+                and sc.sno='%s' and cname='%s' \
+                and grade=(SELECT max(grade)\
+                           FROM student,sc,course\
+                           WHERE sc.sno=student.sno \
+                                 and sc.cno=course.cno);"%(student,course)
+try:
+    cursor.execute(sql) #执行查询语句
+except:
+    print("\n执行过程出现错误！")
+if cursor.rowcount==0:
+    print("\n没有符合条件的记录！")
+else:
+    results=cursor.fetchall()        
+    print("取得最高成绩的学生有：")
+    for row in results:
+        print("%s\t%s\t%.lf"%(row[0],row[1],row[2]))
+
+#5、关闭数据库
+if cursor:
+    cursor.close()
+if connection:
+    connection.close()
+    print("\n数据库连接已关闭")

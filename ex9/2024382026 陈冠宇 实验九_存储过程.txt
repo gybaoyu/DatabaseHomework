@@ -1,0 +1,70 @@
+-- 1.1
+DELIMITER //
+DROP PROCEDURE IF EXISTS ShowPerson//
+CREATE PROCEDURE ShowPerson()
+BEGIN
+    DECLARE man_num INT DEFAULT 0;
+    DECLARE woman_num INT DEFAULT 0;
+    SELECT COUNT(*) INTO man_num FROM student WHERE ssex = '男';
+    SELECT COUNT(*) INTO woman_num FROM student WHERE ssex = '女';
+    IF man_num > woman_num THEN
+        SELECT '男比女多' AS 统计结果;
+    ELSE
+        SELECT '女比男多' AS 统计结果;
+    END IF;
+END //
+DELIMITER ;
+CALL ShowPerson();
+
+-- 1.2
+DELIMITER //
+DROP PROCEDURE IF EXISTS `查询成绩`//
+CREATE PROCEDURE `查询成绩`(IN p_sno CHAR(20), IN p_semester CHAR(15))
+BEGIN
+    SELECT s.sno 学号,s.sname 姓名,sc.cno 课程编号,sc.grade 成绩,sc.semester 学期
+    FROM student s JOIN sc ON s.sno = sc.sno
+    WHERE s.sno = p_sno AND sc.semester = p_semester;
+END //
+DELIMITER ;
+
+-- 1.3
+DELIMITER //
+DROP PROCEDURE IF EXISTS cjcx//
+CREATE PROCEDURE cjcx(IN p_cname VARCHAR(50))
+BEGIN
+    SELECT AVG(grade) 平均成绩,MAX(grade) 最高分,MIN(grade) 最低分
+    FROM sc JOIN course c ON sc.cno = c.cno
+    WHERE c.cname = p_cname;
+END //
+DELIMITER ;
+CALL cjcx('管理学');
+
+-- 1.4
+DELIMITER //
+DROP PROCEDURE IF EXISTS `查询学生信息`//
+CREATE PROCEDURE `查询学生信息`(IN p_sname VARCHAR(20) DEFAULT NULL)
+BEGIN
+    IF p_sname IS NULL THEN
+        SELECT s.*, c.classname 班级名称 FROM student s JOIN class c ON s.classid = c.classid;
+    ELSE
+        SELECT s.*, c.classname 班级名称 FROM student s JOIN class c ON s.classid = c.classid WHERE s.sname = p_sname;
+    END IF;
+END //
+DELIMITER ;
+
+-- 1.5
+DELIMITER //
+DROP PROCEDURE IF EXISTS `学生成绩综合查询`//
+CREATE PROCEDURE `学生成绩综合查询`(IN p_sname VARCHAR(20), IN p_cname VARCHAR(50), IN p_semester CHAR(15))
+BEGIN
+    SELECT s.sno 学号,s.sname 姓名,c.cname 课程名称,sc.grade 成绩,sc.semester 学期
+    FROM student s JOIN sc ON s.sno = sc.sno JOIN course c ON sc.cno = c.cno
+    WHERE s.sname = p_sname AND c.cname = p_cname AND sc.semester = p_semester;
+END //
+DELIMITER ;
+
+-- 2.1
+DROP PROCEDURE IF EXISTS ShowPerson;
+
+-- 2.2
+DROP PROCEDURE IF EXISTS `根据班级名称查询学生信息`;

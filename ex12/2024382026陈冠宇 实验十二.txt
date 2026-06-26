@@ -1,0 +1,484 @@
+-- 实验十二 MySQL游标
+-- 数据库：学生选课
+
+USE `学生选课`;
+
+-- ============================================================
+-- 一、游标基础知识
+-- ============================================================
+
+-- 游标(cursor)：系统为用户开设的一个数据缓冲区，存放SQL语句的执行结果，
+--   每个游标区都有一个名字。用户可以通过游标逐一获取记录并赋给主变量，
+--   交由主语言进一步处理。
+--
+-- 使用游标的4个步骤：
+--   ① 声明游标（DECLARE cursor_name CURSOR FOR select_statement）
+--   ② 打开游标（OPEN cursor_name）
+--   ③ 使用游标（FETCH cursor_name INTO var_name [, var_name]...）
+--   ④ 关闭游标（CLOSE cursor_name）
+--
+-- 控制FETCH循环次数的两种方法：
+--   方法1：先用COUNT(*)获取结果集记录数，再用WHILE循环控制
+--   方法2：使用NOT FOUND异常处理，当无法再取到数据时自动退出循环
+
+
+-- ============================================================
+-- 二、游标举例（教材例题）
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 【例1】函数getCredits：查询给定学号的学生已经取得的总学分
+--    （使用方法1：COUNT控制fetch的执行次数）
+--    功能：遍历学生的选课记录，将成绩≥60分的课程学分累加
+-- ------------------------------------------------------------
+
+DROP FUNCTION IF EXISTS getCredits;
+
+DELIMITER $
+CREATE FUNCTION getCredits(sno CHAR(9))
+RETURNS INT
+DETERMINISTIC
+BEGIN
+    DECLARE s, m, score, credit, n INT;
+    -- 声明游标：查询指定学生的课程成绩和学分
+    DECLARE cur1 CURSOR FOR
+        SELECT sc.Grade, course.Ccredit
+        FROM sc, course
+        WHERE sc.Cno = course.Cno AND sc.Sno = sno;
+    -- 方法1：获取结果集记录数
+    SELECT COUNT(*) INTO n
+        FROM sc, course
+        WHERE sc.Cno = course.Cno AND sc.Sno = sno;
+    SET s = 0, m = 1;
+    OPEN cur1;
+    LL: WHILE m <= n DO
+        FETCH cur1 INTO score, credit;
+        IF score >= 60 THEN
+            SET s = credit + s;
+        END IF;
+        SET m = m + 1;
+    END WHILE LL;
+    CLOSE cur1;
+    RETURN s;
+END $
+DELIMITER ;
+
+-- 测试getCredits函数
+SET @sno = '201215121';
+SELECT getCredits(@sno) AS '总学分';
+
+SELECT getCredits('201215155') AS '总学分';
+
+SELECT getCredits(NULL) AS '总学分';
+
+
+-- ------------------------------------------------------------
+-- 【例2】存储过程showperson_cursor：根据男女生人数输出不同信息
+--    （使用方法2：NOT FOUND异常处理控制fetch的执行次数）
+--    功能：统计男女生人数，输出"男比女多"或"女比男多"
+-- ------------------------------------------------------------
+
+DROP PROCEDURE IF EXISTS showperson_cursor;
+
+DELIMITER $
+CREATE PROCEDURE showperson_cursor()
+BEGIN
+    DECLARE done INT DEFAULT FALSE;
+    DECLARE result_rs, rs INT;
+    DECLARE result_sex, sex CHAR(1);
+    -- 声明游标：按性别统计人数
+    DECLARE cur1 CURSOR FOR
+        SELECT Ssex, COUNT(*)
+        FROM student
+        GROUP BY student.Ssex;
+    -- 方法2：NOT FOUND异常处理
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+    SET result_rs = 0, result_sex = NULL;
+    OPEN cur1;
+    read_loop: LOOP
+        FETCH cur1 INTO sex, rs;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+        IF rs > result_rs THEN
+            SET result_rs = rs;
+            SET result_sex = sex;
+        END IF;
+    END LOOP;
+    IF result_sex = '女' THEN
+        SELECT '女比男多' AS '结论';
+    ELSE
+        SELECT '男比女多' AS '结论';
+    END IF;
+    CLOSE cur1;
+END $
+DELIMITER ;
+
+-- 测试showperson_cursor存储过程
+CALL showperson_cursor();
+
+
+-- ============================================================
+-- 三、教材练习
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 【练习】计算学生平均绩点(GPA)
+--   功能：把学生所选的每门课程的百分制成绩折算成绩点
+--     （按五级制 A/B/C/D/F 分别折算成 4/3/2/1/0），
+--     将课程学分和课程绩点相乘得到课程绩点，
+--     除以总的课程学分即得到平均绩点。
+--   绩点折算规则：
+--     A: 85~100 → 4
+--     B: 75~84  → 3
+--     C: 65~74  → 2
+--     D: 60~64  → 1
+--     F:  0~59  → 0
+-- ------------------------------------------------------------
+
+-- 3.1 创建绩点折算函数 grade_to_point
+DROP FUNCTION IF EXISTS grade_to_point;
+
+DELIMITER $
+CREATE FUNCTION grade_to_point(grade DECIMAL(4,1))
+RETURNS DECIMAL(2,1)
+DETERMINISTIC
+BEGIN
+    DECLARE point DECIMAL(2,1);
+    IF grade IS NULL THEN
+        RETURN 0;
+    ELSEIF grade >= 85 THEN
+        SET point = 4.0;
+    ELSEIF grade >= 75 THEN
+        SET point = 3.0;
+    ELSEIF grade >= 65 THEN
+        SET point = 2.0;
+    ELSEIF grade >= 60 THEN
+        SET point = 1.0;
+    ELSE
+        SET point = 0;
+    END IF;
+    RETURN point;
+END $
+DELIMITER ;
+
+-- 测试绩点折算函数
+SELECT grade_to_point(95) AS '绩点(95分)';  -- 4.0
+SELECT grade_to_point(80) AS '绩点(80分)';  -- 3.0
+SELECT grade_to_point(70) AS '绩点(70分)';  -- 2.0
+SELECT grade_to_point(62) AS '绩点(62分)';  -- 1.0
+SELECT grade_to_point(50) AS '绩点(50分)';  -- 0
+SELECT grade_to_point(NULL) AS '绩点(NULL)'; -- 0
+
+
+-- 3.2 创建计算GPA的函数 calc_GPA（使用方法1：COUNT控制循环）
+DROP FUNCTION IF EXISTS calc_GPA;
+
+DELIMITER $
+CREATE FUNCTION calc_GPA(sno CHAR(9))
+RETURNS DECIMAL(5,2)
+DETERMINISTIC
+BEGIN
+    DECLARE total_quality_points DECIMAL(6,1) DEFAULT 0;
+    DECLARE total_credits DECIMAL(4,1) DEFAULT 0;
+    DECLARE gd DECIMAL(4,1);
+    DECLARE cd DECIMAL(2,1);
+    DECLARE n, i INT DEFAULT 0;
+    -- 声明游标：查询指定学生的各门课程成绩和学分
+    DECLARE cur_gpa CURSOR FOR
+        SELECT sc.Grade, course.Ccredit
+        FROM sc, course
+        WHERE sc.Cno = course.Cno AND sc.Sno = sno;
+    -- 方法1：获取结果集记录数
+    SELECT COUNT(*) INTO n
+        FROM sc, course
+        WHERE sc.Cno = course.Cno AND sc.Sno = sno;
+
+    IF n = 0 THEN
+        RETURN 0;
+    END IF;
+
+    OPEN cur_gpa;
+    SET i = 1;
+    gpa_loop: WHILE i <= n DO
+        FETCH cur_gpa INTO gd, cd;
+        -- 将百分制成绩折算成绩点，乘学分累加
+        SET total_quality_points = total_quality_points + grade_to_point(gd) * cd;
+        SET total_credits = total_credits + cd;
+        SET i = i + 1;
+    END WHILE gpa_loop;
+    CLOSE cur_gpa;
+
+    IF total_credits = 0 THEN
+        RETURN 0;
+    END IF;
+
+    RETURN ROUND(total_quality_points / total_credits, 2);
+END $
+DELIMITER ;
+
+-- 测试calc_GPA函数
+SELECT calc_GPA('201215121') AS '平均绩点(GPA)';
+SELECT calc_GPA('201215155') AS '平均绩点(GPA)';
+
+
+-- 3.3 创建计算GPA的函数 calc_GPA_v2（使用方法2：NOT FOUND handler）
+DROP FUNCTION IF EXISTS calc_GPA_v2;
+
+DELIMITER $
+CREATE FUNCTION calc_GPA_v2(sno CHAR(9))
+RETURNS DECIMAL(5,2)
+DETERMINISTIC
+BEGIN
+    DECLARE done INT DEFAULT FALSE;
+    DECLARE total_quality_points DECIMAL(6,1) DEFAULT 0;
+    DECLARE total_credits DECIMAL(4,1) DEFAULT 0;
+    DECLARE gd DECIMAL(4,1);
+    DECLARE cd DECIMAL(2,1);
+    -- 声明游标
+    DECLARE cur_gpa CURSOR FOR
+        SELECT sc.Grade, course.Ccredit
+        FROM sc, course
+        WHERE sc.Cno = course.Cno AND sc.Sno = sno;
+    -- 方法2：NOT FOUND异常处理
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+    OPEN cur_gpa;
+    gpa_loop2: LOOP
+        FETCH cur_gpa INTO gd, cd;
+        IF done THEN
+            LEAVE gpa_loop2;
+        END IF;
+        SET total_quality_points = total_quality_points + grade_to_point(gd) * cd;
+        SET total_credits = total_credits + cd;
+    END LOOP gpa_loop2;
+    CLOSE cur_gpa;
+
+    IF total_credits = 0 THEN
+        RETURN 0;
+    END IF;
+
+    RETURN ROUND(total_quality_points / total_credits, 2);
+END $
+DELIMITER ;
+
+-- 测试calc_GPA_v2函数
+SELECT calc_GPA_v2('201215121') AS '平均绩点GPA(v2)';
+SELECT calc_GPA_v2('201215155') AS '平均绩点GPA(v2)';
+
+
+-- ============================================================
+-- 四、补充练习：游标综合应用
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 补充练习1：创建存储过程，使用游标遍历所有学生，
+--   统计每个学生的选课门数并存入新表
+-- ------------------------------------------------------------
+
+DROP TABLE IF EXISTS student_course_count;
+CREATE TABLE student_course_count(
+    Sno CHAR(9) PRIMARY KEY COMMENT '学号',
+    Sname VARCHAR(20) COMMENT '姓名',
+    course_count INT COMMENT '选课门数'
+);
+
+DROP PROCEDURE IF EXISTS count_student_courses;
+
+DELIMITER $
+CREATE PROCEDURE count_student_courses()
+BEGIN
+    DECLARE done INT DEFAULT FALSE;
+    DECLARE v_sno CHAR(9);
+    DECLARE v_sname VARCHAR(20);
+    DECLARE v_count INT;
+    -- 游标1：遍历所有学生
+    DECLARE cur_student CURSOR FOR
+        SELECT Sno, Sname FROM student;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+    OPEN cur_student;
+    student_loop: LOOP
+        FETCH cur_student INTO v_sno, v_sname;
+        IF done THEN
+            LEAVE student_loop;
+        END IF;
+        -- 统计当前学生的选课门数
+        SELECT COUNT(*) INTO v_count
+        FROM sc
+        WHERE Sno = v_sno;
+        -- 插入结果表
+        INSERT INTO student_course_count(Sno, Sname, course_count)
+        VALUES(v_sno, v_sname, v_count);
+    END LOOP student_loop;
+    CLOSE cur_student;
+END $
+DELIMITER ;
+
+-- 测试
+CALL count_student_courses();
+SELECT * FROM student_course_count;
+
+
+-- ------------------------------------------------------------
+-- 补充练习2：创建存储过程，使用游标统计每门课程的平均成绩，
+--   并将不及格率超过30%的课程标记为"预警课程"
+-- ------------------------------------------------------------
+
+DROP TABLE IF EXISTS course_stats;
+CREATE TABLE course_stats(
+    Cno CHAR(5) PRIMARY KEY COMMENT '课程编号',
+    Cname VARCHAR(40) COMMENT '课程名称',
+    avg_grade DECIMAL(5,2) COMMENT '平均成绩',
+    fail_rate DECIMAL(5,2) COMMENT '不及格率(%)',
+    warning VARCHAR(10) COMMENT '是否预警'
+);
+
+DROP PROCEDURE IF EXISTS analyze_courses;
+
+DELIMITER $
+CREATE PROCEDURE analyze_courses()
+BEGIN
+    DECLARE done INT DEFAULT FALSE;
+    DECLARE v_cno CHAR(5);
+    DECLARE v_cname VARCHAR(40);
+    DECLARE v_avg DECIMAL(5,2);
+    DECLARE v_total INT;
+    DECLARE v_fail INT;
+    DECLARE v_fail_rate DECIMAL(5,2);
+    DECLARE v_warning VARCHAR(10);
+    -- 游标：遍历所有课程
+    DECLARE cur_course CURSOR FOR
+        SELECT Cno, Cname FROM course;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+    OPEN cur_course;
+    course_loop: LOOP
+        FETCH cur_course INTO v_cno, v_cname;
+        IF done THEN
+            LEAVE course_loop;
+        END IF;
+
+        -- 计算该课程的平均成绩
+        SELECT AVG(Grade) INTO v_avg
+        FROM sc
+        WHERE Cno = v_cno AND Grade IS NOT NULL;
+
+        -- 计算选课总人数
+        SELECT COUNT(*) INTO v_total
+        FROM sc
+        WHERE Cno = v_cno AND Grade IS NOT NULL;
+
+        -- 计算不及格人数（成绩<60）
+        SELECT COUNT(*) INTO v_fail
+        FROM sc
+        WHERE Cno = v_cno AND Grade IS NOT NULL AND Grade < 60;
+
+        -- 计算不及格率
+        IF v_total > 0 THEN
+            SET v_fail_rate = ROUND(v_fail / v_total * 100, 2);
+        ELSE
+            SET v_fail_rate = 0;
+        END IF;
+
+        -- 判断是否预警（不及格率>30%）
+        IF v_fail_rate > 30 THEN
+            SET v_warning = '是';
+        ELSE
+            SET v_warning = '否';
+        END IF;
+
+        INSERT INTO course_stats(Cno, Cname, avg_grade, fail_rate, warning)
+        VALUES(v_cno, v_cname, v_avg, v_fail_rate, v_warning);
+    END LOOP course_loop;
+    CLOSE cur_course;
+END $
+DELIMITER ;
+
+-- 测试
+CALL analyze_courses();
+SELECT * FROM course_stats;
+
+
+-- ------------------------------------------------------------
+-- 补充练习3：创建函数，使用游标查询某学生成绩最高的课程名称
+-- ------------------------------------------------------------
+
+DROP FUNCTION IF EXISTS get_best_course;
+
+DELIMITER $
+CREATE FUNCTION get_best_course(sno CHAR(9))
+RETURNS VARCHAR(40)
+DETERMINISTIC
+BEGIN
+    DECLARE done INT DEFAULT FALSE;
+    DECLARE best_cname VARCHAR(40) DEFAULT NULL;
+    DECLARE best_grade DECIMAL(4,1) DEFAULT -1;
+    DECLARE v_cname VARCHAR(40);
+    DECLARE v_grade DECIMAL(4,1);
+    -- 游标：查询学生的所有课程名称及成绩
+    DECLARE cur_best CURSOR FOR
+        SELECT c.Cname, sc.Grade
+        FROM sc, course c
+        WHERE sc.Cno = c.Cno AND sc.Sno = sno AND sc.Grade IS NOT NULL;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+    OPEN cur_best;
+    best_loop: LOOP
+        FETCH cur_best INTO v_cname, v_grade;
+        IF done THEN
+            LEAVE best_loop;
+        END IF;
+        IF v_grade > best_grade THEN
+            SET best_grade = v_grade;
+            SET best_cname = v_cname;
+        END IF;
+    END LOOP best_loop;
+    CLOSE cur_best;
+
+    RETURN best_cname;
+END $
+DELIMITER ;
+
+-- 测试
+SELECT get_best_course('201215121') AS '成绩最高的课程';
+SELECT get_best_course('201215155') AS '成绩最高的课程';
+
+
+-- ============================================================
+-- 五、查看与管理游标相关对象
+-- ============================================================
+
+-- 查看已创建的函数
+SHOW FUNCTION STATUS WHERE Db = '学生选课';
+
+-- 查看已创建的存储过程
+SHOW PROCEDURE STATUS WHERE Db = '学生选课';
+
+-- 查看函数创建语句
+SHOW CREATE FUNCTION getCredits;
+SHOW CREATE FUNCTION calc_GPA;
+SHOW CREATE FUNCTION calc_GPA_v2;
+SHOW CREATE FUNCTION grade_to_point;
+SHOW CREATE FUNCTION get_best_course;
+
+-- 查看存储过程创建语句
+SHOW CREATE PROCEDURE showperson_cursor;
+SHOW CREATE PROCEDURE count_student_courses;
+SHOW CREATE PROCEDURE analyze_courses;
+
+-- 删除函数（按需执行）
+-- DROP FUNCTION IF EXISTS getCredits;
+-- DROP FUNCTION IF EXISTS calc_GPA;
+-- DROP FUNCTION IF EXISTS calc_GPA_v2;
+-- DROP FUNCTION IF EXISTS grade_to_point;
+-- DROP FUNCTION IF EXISTS get_best_course;
+
+-- 删除存储过程（按需执行）
+-- DROP PROCEDURE IF EXISTS showperson_cursor;
+-- DROP PROCEDURE IF EXISTS count_student_courses;
+-- DROP PROCEDURE IF EXISTS analyze_courses;
+
+-- 删除统计表（按需执行）
+-- DROP TABLE IF EXISTS student_course_count;
+-- DROP TABLE IF EXISTS course_stats;

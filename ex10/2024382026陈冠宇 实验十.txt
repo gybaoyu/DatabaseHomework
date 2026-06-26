@@ -1,0 +1,311 @@
+-- 实验十 MySQL触发器
+-- 数据库：学生管理
+
+USE `学生管理`;
+
+-- ============================================================
+-- 一、实验内容
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 1. 在student表上创建BEFORE INSERT触发器
+--    功能：当插入的学生入学成绩 < 400 时，自动将其调整为400
+--    测试：插入一条入学成绩为389的学生记录，观察触发器效果
+-- ------------------------------------------------------------
+
+DROP TRIGGER IF EXISTS trig_student_insert;
+
+DELIMITER $
+CREATE TRIGGER trig_student_insert
+BEFORE INSERT ON student
+FOR EACH ROW
+BEGIN
+    IF NEW.student_entrancescore < 400 THEN
+        SET NEW.student_entrancescore = 400;
+    END IF;
+END $
+DELIMITER ;
+
+-- 测试1：插入入学成绩389（<400）的学生，触发器应将其修正为400
+INSERT INTO student(student_id, student_name, student_sex, student_birthdate,
+    student_entrancescore, student_partymember, class_id)
+VALUES('2021094030', '赵新', '男', '2004-01-01', 389, 0, '202101');
+
+-- 验证：查看插入后的入学成绩
+SELECT student_id, student_name, student_entrancescore
+FROM student
+WHERE student_id = '2021094030';
+
+
+-- ------------------------------------------------------------
+-- 2. 在student表上创建BEFORE UPDATE触发器
+--    功能：当更新后学生入学成绩 < 400 时，自动将其调整为400
+--    测试：将学生入学成绩更新为390，观察触发器效果
+-- ------------------------------------------------------------
+
+DROP TRIGGER IF EXISTS trig_student_update;
+
+DELIMITER $
+CREATE TRIGGER trig_student_update
+BEFORE UPDATE ON student
+FOR EACH ROW
+BEGIN
+    IF NEW.student_entrancescore < 400 THEN
+        SET NEW.student_entrancescore = 400;
+    END IF;
+END $
+DELIMITER ;
+
+-- 测试2：将赵新的入学成绩更新为390（<400），触发器应将其修正为400
+UPDATE student
+SET student_entrancescore = 390
+WHERE student_id = '2021094030';
+
+-- 验证：查看更新后的入学成绩
+SELECT student_id, student_name, student_entrancescore
+FROM student
+WHERE student_id = '2021094030';
+
+
+-- ------------------------------------------------------------
+-- 3. 在student表上创建BEFORE DELETE触发器 trig_del_student
+--    功能：删除学生记录时，级联删除该学生在score表中的选课记录
+--    测试：删除student表中的学生记录
+-- ------------------------------------------------------------
+
+DROP TRIGGER IF EXISTS trig_del_student;
+
+DELIMITER $
+CREATE TRIGGER trig_del_student
+BEFORE DELETE ON student
+FOR EACH ROW
+BEGIN
+    DELETE FROM score WHERE student_id = OLD.student_id;
+END $
+DELIMITER ;
+
+-- 测试3：删除学号为2021094030的学生，触发器应同时删除其选课记录
+DELETE FROM student
+WHERE student_id = '2021094030';
+
+-- 验证：查看student表中是否还存在该学生
+SELECT * FROM student WHERE student_id = '2021094030';
+
+
+-- ------------------------------------------------------------
+-- 4. 在course表上创建BEFORE DELETE触发器 trig_del_course
+--    功能：删除课程记录时，级联删除该课程在score表中的选课记录
+--    测试：删除course表中的课程记录（用测试课程验证）
+-- ------------------------------------------------------------
+
+DROP TRIGGER IF EXISTS trig_del_course;
+
+DELIMITER $
+CREATE TRIGGER trig_del_course
+BEFORE DELETE ON course
+FOR EACH ROW
+BEGIN
+    DELETE FROM score WHERE course_id = OLD.course_id;
+END $
+DELIMITER ;
+
+-- 测试4：先插入一门测试课程，再删除它，验证触发器级联删除功能
+INSERT INTO course(course_id, course_name, course_assessmentmethod, course_hours, course_credit)
+VALUES('04010999', '测试课程', '考查', 32, 2.0);
+
+-- 为该课程插入一条选课记录
+INSERT INTO score(student_id, course_id, score_grade, score_semester)
+VALUES('2021094001', '04010999', 85, '202120221');
+
+-- 删除该课程，触发器应同时删除对应的score记录
+DELETE FROM course WHERE course_id = '04010999';
+
+-- 验证：score表中是否还存在该课程的记录
+SELECT * FROM score WHERE course_id = '04010999';
+
+
+-- ============================================================
+-- 二、教材练习
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 教材练习1：在sc(score)表上创建BEFORE UPDATE触发器
+--    功能：将成绩修正到[0, 100]范围内（超出范围自动截断）
+--    （对应教材：valid_grade_beforeupdate_sc）
+-- ------------------------------------------------------------
+
+DROP TRIGGER IF EXISTS valid_grade_beforeupdate_sc;
+
+DELIMITER $
+CREATE TRIGGER valid_grade_beforeupdate_sc
+BEFORE UPDATE ON score
+FOR EACH ROW
+BEGIN
+    IF NEW.score_grade < 0 THEN
+        SET NEW.score_grade = 0;
+    ELSEIF NEW.score_grade > 100 THEN
+        SET NEW.score_grade = 100;
+    END IF;
+END $
+DELIMITER ;
+
+-- 测试：更新成绩为-10（<0），触发器应修正为0
+-- UPDATE score SET score_grade = -10 WHERE student_id = '...' AND course_id = '...';
+
+-- 测试：更新成绩为120（>100），触发器应修正为100
+-- UPDATE score SET score_grade = 120 WHERE student_id = '...' AND course_id = '...';
+
+
+-- ------------------------------------------------------------
+-- 教材练习2：在sc(score)表上创建BEFORE UPDATE触发器
+--    功能：拒绝无效成绩（<0或>100），使用SIGNAL抛出错误
+--    （对应教材：reject_grade_beforeupdate_sc）
+-- ------------------------------------------------------------
+
+DROP TRIGGER IF EXISTS reject_grade_beforeupdate_sc;
+
+DELIMITER $
+CREATE TRIGGER reject_grade_beforeupdate_sc
+BEFORE UPDATE ON score
+FOR EACH ROW
+BEGIN
+    IF NEW.score_grade < 0 OR NEW.score_grade > 100 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = '成绩必须在0到100之间！';
+    END IF;
+END $
+DELIMITER ;
+
+-- 测试：尝试更新成绩为-5，触发器应拒绝并报错
+-- UPDATE score SET score_grade = -5 WHERE student_id = '...' AND course_id = '...';
+
+
+-- ------------------------------------------------------------
+-- 教材练习3：在sc(score)表上创建INSERT触发器
+--    功能：限制每个学生最多选修3门课程（插入前检查）
+--    （对应教材：tr3_beforeinsert）
+-- ------------------------------------------------------------
+
+DROP TRIGGER IF EXISTS tr3_beforeinsert;
+
+DELIMITER $
+CREATE TRIGGER tr3_beforeinsert
+BEFORE INSERT ON score
+FOR EACH ROW
+BEGIN
+    DECLARE course_count INT;
+    SELECT COUNT(*) INTO course_count
+    FROM score
+    WHERE student_id = NEW.student_id;
+
+    IF course_count >= 3 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = '每个学生最多选修3门课程，插入失败！';
+    END IF;
+END $
+DELIMITER ;
+
+-- 测试：向已选满3门课的学生再插入选课记录，触发器应报错
+-- INSERT INTO score(student_id, course_id, score_grade, score_semester)
+-- VALUES('...', '...', 85, '202120221');
+
+
+-- ------------------------------------------------------------
+-- 教材练习3补充：在sc(score)表上创建AFTER INSERT触发器
+--    功能：插入后再次检查，若超过3门则回滚（删除刚插入的记录）
+--    （对应教材：tr3_afterinsert）
+--    注意：教材中SIGNAL在前、DELETE在后；实际运行时SIGNAL会中断后续语句，
+--          该触发器主要用于演示AFTER触发器的原理
+-- ------------------------------------------------------------
+
+DROP TRIGGER IF EXISTS tr3_afterinsert;
+
+DELIMITER $
+CREATE TRIGGER tr3_afterinsert
+AFTER INSERT ON score
+FOR EACH ROW
+BEGIN
+    IF (SELECT COUNT(*) FROM score WHERE student_id = NEW.student_id) > 3 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = '选课数量超过3门，已回滚！';
+        DELETE FROM score
+        WHERE student_id = NEW.student_id
+          AND course_id = NEW.course_id;
+    END IF;
+END $
+DELIMITER ;
+
+
+-- ------------------------------------------------------------
+-- 教材练习4：在sc(score)表上创建BEFORE INSERT触发器
+--    功能：自动设置选课日期为当前日期
+--    （对应教材：T_sc_adddate）
+-- ------------------------------------------------------------
+
+-- 先为score表添加选课日期字段
+-- 若字段不存在则添加（MySQL 8.0+不支持IF NOT EXISTS，需手动检查）
+ALTER TABLE score
+ADD COLUMN score_adddate DATE NULL COMMENT '选课日期';
+
+DROP TRIGGER IF EXISTS T_sc_adddate;
+
+DELIMITER $
+CREATE TRIGGER T_sc_adddate
+BEFORE INSERT ON score
+FOR EACH ROW
+BEGIN
+    SET NEW.score_adddate = CURDATE();
+END $
+DELIMITER ;
+
+-- 测试：插入一条选课记录，触发器自动填充选课日期
+-- INSERT INTO score(student_id, course_id, score_grade, score_semester)
+-- VALUES('2021094001', '04010101', NULL, '202120221');
+-- SELECT * FROM score WHERE student_id = '2021094001' AND course_id = '04010101';
+
+
+-- ------------------------------------------------------------
+-- 教材练习5：在student表上创建DELETE触发器
+--    功能：删除学生前/后，级联删除其在score表中的选课记录
+--    （对应教材：T_student_beforedelete 和 T_student_afterdelete）
+--    注：BEFORE DELETE版本已在实验内容第3题中实现(trig_del_student)，
+--        此处补充AFTER DELETE版本
+-- ------------------------------------------------------------
+
+DROP TRIGGER IF EXISTS T_student_afterdelete;
+
+DELIMITER $
+CREATE TRIGGER T_student_afterdelete
+AFTER DELETE ON student
+FOR EACH ROW
+BEGIN
+    DELETE FROM score WHERE student_id = OLD.student_id;
+END $
+DELIMITER ;
+
+-- 说明：
+-- BEFORE DELETE版本（trig_del_student）：在删除student记录前先删除相关score记录，
+--     可避免因外键约束导致的删除失败
+-- AFTER DELETE版本（T_student_afterdelete）：在删除student记录后再清理score记录，
+--     需确保外键约束允许（如设置ON DELETE CASCADE或先解除约束）
+-- 实际应用中推荐使用BEFORE DELETE版本，保证数据完整性
+
+
+-- ============================================================
+-- 三、查看与管理触发器
+-- ============================================================
+
+-- 查看当前数据库中所有触发器
+SHOW TRIGGERS FROM `学生管理`;
+
+-- 查看某个触发器的创建语句
+SHOW CREATE TRIGGER trig_student_insert;
+SHOW CREATE TRIGGER trig_student_update;
+SHOW CREATE TRIGGER trig_del_student;
+SHOW CREATE TRIGGER trig_del_course;
+
+-- 删除触发器（按需执行）
+-- DROP TRIGGER IF EXISTS trig_student_insert;
+-- DROP TRIGGER IF EXISTS trig_student_update;
+-- DROP TRIGGER IF EXISTS trig_del_student;
+-- DROP TRIGGER IF EXISTS trig_del_course;

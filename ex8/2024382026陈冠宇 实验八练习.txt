@@ -1,0 +1,84 @@
+练习1：week_day_name(x) 实现
+
+DELIMITER $$
+CREATE FUNCTION week_day_name(x TINYINT)
+RETURNS CHAR(3)
+BEGIN
+    CASE x
+        WHEN 1 THEN RETURN '星期一';
+        WHEN 2 THEN RETURN '星期二';
+        WHEN 3 THEN RETURN '星期三';
+        WHEN 4 THEN RETURN '星期四';
+        WHEN 5 THEN RETURN '星期五';
+        WHEN 6 THEN RETURN '星期六';
+        WHEN 7 THEN RETURN '星期日';
+        ELSE RETURN '参数错';
+    END CASE;
+END $$
+DELIMITER ;
+
+-- 测试语句
+SELECT week_day_name(3); -- 输出：星期三
+SELECT week_day_name(7); -- 输出：星期日
+SELECT week_day_name(10); -- 输出：参数错
+
+练习2：素数判断的两种实现
+版本1：LOOP语句实现
+DELIMITER $$
+CREATE FUNCTION IsPrime_Loop(n INT)
+RETURNS INT
+BEGIN
+    -- 边界处理：小于等于1的数不是素数
+    IF n <= 1 THEN
+        RETURN 0;
+    END IF;
+    DECLARE i INT DEFAULT 2;
+    DECLARE yn INT DEFAULT 1; -- 1默认是素数，0代表非素数
+    loop_tag: LOOP
+        -- 循环结束条件：所有小于n的数都遍历完成
+        IF i >= n THEN
+            LEAVE loop_tag;
+        END IF;
+        -- 找到因子直接标记非素数并退出
+        IF n % i = 0 THEN
+            SET yn = 0;
+            LEAVE loop_tag;
+        END IF;
+        SET i = i + 1;
+    END LOOP loop_tag;
+    RETURN yn;
+END $$
+DELIMITER ;
+
+-- 测试语句
+SELECT IsPrime_Loop(2); -- 1 是素数
+SELECT IsPrime_Loop(9); -- 0 非素数
+SELECT IsPrime_Loop(17); -- 1 是素数
+
+版本2：REPEAT语句实现
+DELIMITER $$
+CREATE FUNCTION IsPrime_Repeat(n INT)
+RETURNS INT
+BEGIN
+    -- 边界处理
+    IF n <= 1 THEN
+        RETURN 0;
+    END IF;
+    DECLARE i INT DEFAULT 2;
+    DECLARE yn INT DEFAULT 1;
+    repeat_tag: REPEAT
+        IF n % i = 0 THEN
+            SET yn = 0;
+        END IF;
+        SET i = i + 1;
+    -- 直到遍历完成或已找到因子就退出循环
+    UNTIL i >= n OR yn = 0
+    END REPEAT repeat_tag;
+    RETURN yn;
+END $$
+DELIMITER ;
+
+-- 测试语句
+SELECT IsPrime_Repeat(4); -- 0 非素数
+SELECT IsPrime_Repeat(13); -- 1 是素数
+SELECT IsPrime_Repeat(1); -- 0 非素数

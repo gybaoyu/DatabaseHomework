@@ -1,0 +1,79 @@
+实验内容1：查询MySQL版本号
+-- 方法1
+SELECT VERSION();
+-- 方法2
+SELECT @@VERSION;
+
+实验内容2：存储过程xyz运行与功能说明
+步骤1：创建存储过程
+delimiter $ -- 修改语句结束符为$，避免和存储过程内部的;冲突
+CREATE PROCEDURE xyz()
+begin
+Declare summ,i,nums SMALLINT;
+Set summ=0;
+Set i=1;
+Set nums=0;
+ST:
+While i<=100 do
+if i%3=0 then
+Set summ=summ+i;
+Set nums=nums+1;
+END if;
+Set i=i+1;
+END while ST;
+SELECT summ AS '总和';
+SELECT nums AS '个数是';
+END $
+delimiter ; -- 改回默认结束符;
+步骤2：调用存储过程
+CALL xyz();
+运行结果：
+总和
+1683
+个数是
+33
+功能说明：
+该存储过程功能为统计1~100范围内所有能被3整除的整数的总和，以及符合条件的数的总个数。验证：1~100内被3整除的数为3、6...99，总和=(3+99)*33/2=1683，共33个，和运行结果一致。
+
+实验内容3：MySQL程序设计
+
+（1）计算1至100之间的整数和，并输出结果
+delimiter $
+CREATE PROCEDURE calc_sum_1_100()
+BEGIN
+    DECLARE total INT DEFAULT 0;
+    DECLARE i INT DEFAULT 1;
+    WHILE i <= 100 DO
+        SET total = total + i;
+        SET i = i + 1;
+    END WHILE;
+    SELECT total AS '1到100的整数和';
+END $
+delimiter ;
+
+CALL calc_sum_1_100();
+
+运行结果：
+1到100的整数和
+5050
+
+（2）将50以内所有偶数存入数据库
+DROP TABLE IF EXISTS even_num;
+CREATE TABLE even_num(
+    num INT PRIMARY KEY COMMENT '存储50以内偶数'
+);
+delimiter $
+CREATE PROCEDURE insert_even()
+BEGIN
+    DECLARE n INT DEFAULT 2; -- 最小正偶数为2
+    WHILE n <= 50 DO
+        INSERT INTO even_num(num) VALUES(n);
+        SET n = n + 2;
+    END WHILE;
+END $
+delimiter ;
+
+CALL insert_even();
+SELECT * FROM even_num;
+结果说明：
+表中会存入2、4、6...48、50共25个50以内的偶数，符合要求。
